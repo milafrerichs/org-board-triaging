@@ -1,21 +1,32 @@
-/**
- * This is the main entrypoint to your Probot app
- * @param {import('probot').Probot} app
- */
+const mutation = require('./mutations');
+const queries = require('./queries');
+
 module.exports = (app) => {
-  // Your code here
-  app.log.info("Yay, the app was loaded!");
-
   app.on("issues.opened", async (context) => {
-    const issueComment = context.issue({
-      body: "Thanks for opening this issue!",
+    const config = await context.config('triaging.yml', {
+      owner: context.payload.organization.login || context.payload.sender.login || '',
+      projectName: "Test",
+      column: 1
     });
-    return context.octokit.issues.createComment(issueComment);
+    try {
+      const data = await context.octokit.graphql(queries.findProjectColumnByNumber, {
+        "owner": config.owner,
+        "projectName": config.projectName,
+        "column": config.column
+      });
+      const { organization: { projects: { edges: boards } } } = data;
+      const board = boards[0]
+      const { node: { columns: { edges: nodes } } } = board;
+      const column = nodes[0]
+      const { node: { id: projectColumnId } } = column;
+      context.octokit.graphql(mutation.addProjectCard, {
+        issue: {
+          contentId: context.payload.issue.node_id,
+          projectColumnId
+        }
+      });
+    } catch (error) {
+      app.log.debug(error.errors, "Error");
+    }
   });
-
-  // For more information on building apps:
-  // https://probot.github.io/docs/
-
-  // To get your app running against GitHub, see:
-  // https://probot.github.io/docs/development/
 };

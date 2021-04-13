@@ -14,5 +14,11 @@
   },
   "installation": {
     "id": 2
-  }
+  },
+	"organization": {
+		"login": "CivicVision"
+	},
+	"sender": {
+		"login": "milafrerichs"
+	}
 }
