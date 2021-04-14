@@ -2,14 +2,15 @@
   "action": "opened",
   "issue": {
     "number": 1,
+		"node_id": "1=",
     "user": {
       "login": "hiimbex"
     }
   },
   "repository": {
-    "name": "testing-things",
+    "name": "testing-triaging",
     "owner": {
-      "login": "hiimbex"
+      "login": "CivicVision"
     }
   },
   "installation": {

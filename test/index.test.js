@@ -7,6 +7,8 @@ const payload = require("./fixtures/issues.opened");
 const issueCreatedBody = { body: "Thanks for opening this issue!" };
 const fs = require("fs");
 const path = require("path");
+const queries = require('../queries');
+const mutations = require('../mutations');
 
 const privateKey = fs.readFileSync(
   path.join(__dirname, "fixtures/mock-cert.pem"),
@@ -19,8 +21,8 @@ describe("My Probot app", () => {
   beforeEach(() => {
     nock.disableNetConnect();
     probot = new Probot({
-      appId: 123,
-      privateKey,
+      appId: 109789,
+      githubToken: "test",
       // disable request throttling and retries for testing
       Octokit: ProbotOctokit.defaults({
         retry: { enabled: false },
@@ -31,24 +33,21 @@ describe("My Probot app", () => {
     probot.load(myProbotApp);
   });
 
-  test("creates a comment when an issue is opened", async () => {
-    const mock = nock("https://api.github.com")
-      // Test that we correctly return a test token
-      .post("/app/installations/2/access_tokens")
-      .reply(200, {
-        token: "test",
-        permissions: {
-          issues: "write",
-        },
-      })
+  test("triage issue to specified board column id", async () => {
+    let data = { organization: { projects: { edges: [ { node: { columns: { edges: [ {node: { id: 1 }} ] } } } ] }}  }
+    const variables = {owner: 'CivicVision', projectName: 'Test', column: 1}
 
-      // Test that a comment is posted
-      .post("/repos/hiimbex/testing-things/issues/1/comments", (body) => {
-        expect(body).toMatchObject(issueCreatedBody);
-        return true;
-      })
-      .reply(200);
+    const mock = nock('https://api.github.com')
+      .get('/repos/CivicVision/testing-triaging/contents/.github%2Ftriaging.yml')
+      .reply(200, "")
 
+      .post('/graphql', {query: queries.findProjectColumnByNumber, variables})
+      .reply(200, { data  })
+
+      .post('/graphql', {query: mutations.addProjectCard, variables: { issue: {  contentId: "1=", projectColumnId: 1 }}})
+      .reply(200)
+
+    const nockCalls = nock.recorder.play()
     // Receive a webhook event
     await probot.receive({ name: "issues", payload });
 
@@ -60,9 +59,3 @@ describe("My Probot app", () => {
     nock.enableNetConnect();
   });
 });
-
-// For more information about testing with Jest see:
-// https://facebook.github.io/jest/
-
-// For more information about testing with Nock see:
-// https://github.com/nock/nock
